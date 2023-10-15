@@ -44,6 +44,7 @@ def transJp2En(text_ja: str):
 
 # 画像ファイルを分類
 import glob
+import time
 def categorize_images(category: category):
     # 画像ファイルを取得
     '''
@@ -52,6 +53,7 @@ def categorize_images(category: category):
     files.sort()
     images = [Image.open(file) for file in files]
     '''
+    start_time = time.time()
     extract_dir = category.extract_dir
     images = []
     image_urls = []
@@ -60,8 +62,10 @@ def categorize_images(category: category):
             file_url = os.path.join(root, file)
             images.append(Image.open(file_url))
             image_urls.append(ImageInfo(file_name=file, file_url=file_url))
+    print(f'画像ファイル取得：{time.time() - start_time}秒')
 
     # カテゴリを取得
+    start_time = time.time()
     cat_list = category.categories
     labels = []
     for cat in cat_list:
@@ -73,17 +77,23 @@ def categorize_images(category: category):
             continue
         labels.append(cat_en)
     label_descriptions = [f"This is a photo of a {label}" for label in labels]
+    print(f'カテゴリ取得：{time.time() - start_time}秒')
 
     # 画像ファイルとカテゴリをtensorに変換
+    start_time = time.time()
     inputs = processor(text=label_descriptions, 
                        images=images, return_tensors="pt", padding=True).to(device)
+    print(f'tensor変換：{time.time() - start_time}秒')
 
     # 画像ファイルごとのCOS類似度、確率を計算
+    start_time = time.time()
     with torch.no_grad():
         outputs = model(**inputs)
         logits_per_image = outputs.logits_per_image
         probs = logits_per_image.softmax(1)
+    print(f'確率算出：{time.time() - start_time}秒')
     
+    start_time = time.time()
     image_results = []
     for i, image_url in enumerate(image_urls):
         image_probs = probs[i]
@@ -103,6 +113,7 @@ def categorize_images(category: category):
             'topk_probs': topk_probs.tolist()
         }
         image_results.append(image_result)
+    print(f'response作成：{time.time() - start_time}秒')
 
     return JSONResponse(content={'results': image_results})
 
@@ -131,6 +142,12 @@ async def upload(file: UploadFile):
             extracted_files = os.listdir(extract_dir)
 
     return JSONResponse(content={'num_files': len(extracted_files), 'extract_dir': extract_dir})
+
+# ファイル削除
+@app.delete('/delete/{dir}')
+async def deleteDir(dir: str):
+    if os.path.exists(dir):
+        shutil.rmtree(dir)
 
 # 画像分類
 @app.post('/categorize')

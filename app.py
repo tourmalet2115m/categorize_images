@@ -4,7 +4,7 @@ import requests
 st.title('画像分類アプリケーション')
 
 # カテゴリ
-st.sidebar.write('分類するカテゴリを1つ以上指定してください')
+st.sidebar.write('分類するカテゴリを２つ以上指定してください')
 input1 = st.sidebar.text_input('Category_1')
 input2 = st.sidebar.text_input('Category_2')
 input3 = st.sidebar.text_input('Category_3')
@@ -12,8 +12,20 @@ input4 = st.sidebar.text_input('Category_4')
 input5 = st.sidebar.text_input('Category_5')
 
 # 画像ファイル（zip）
-st.write('分類する画像ファイルを格納したzipファイルを指定してください')
-img_file = st.file_uploader('画像ファイル（*.jpg）を圧縮したzipファイル', type='zip')
+img_file = st.file_uploader('分類する画像ファイル（*.jpg）を圧縮したzipファイル', type='zip')
+
+# 分類ボタン
+cat_btn = st.button('分類')
+
+# クリアボタン
+clear_btn = st.button('クリア')
+
+# 結果表示
+result_panel = st.container()
+
+# セッション状態を初期化
+if 'stored_value' not in st.session_state:
+    st.session_state.stored_value = None
 
 # ファイルのアップロード
 def upload_file():
@@ -26,6 +38,7 @@ def upload_file():
         extract_dir = response.json()['extract_dir']
         num_files = response.json()['num_files']
 
+        st.session_state.stored_value = extract_dir
     if 0 < num_files:
         return extract_dir
     else:
@@ -52,15 +65,10 @@ def get_category():
     if 0 < len(cat5) and cat5 not in categories:
         categories.append(cat5)
     
-    if 0 < len(categories):
-        '''
-        cat_other = 'その他'
-        if cat_other not in categories:
-            categories.append(cat_other)
-        '''
+    if 1 < len(categories):
         return categories
     else:
-        st.write('分類するカテゴリを1つ以上指定してください')
+        st.write('分類するカテゴリを２つ以上指定してください')
         return
 
 # 分類結果の表示
@@ -90,14 +98,11 @@ def pred_disp(i, result):
       plt.xlabel("確率")
       
       plt.subplots_adjust(wspace=0.5)
-      st.pyplot(plt)
+      result_panel.pyplot(plt)
 
-# 分類ボタン
-if st.button('分類'):
-    '''
-    if img_file is not None:
-        files = {'file': ('uploaded_file.zip', img_file.read())}
-    '''
+if cat_btn:
+    subheader = result_panel.subheader("画像分類中 ...")
+
     extract_dir = upload_file()
     categories = get_category()
     if extract_dir is not None and 0 < len(categories):
@@ -111,8 +116,19 @@ if st.button('分類'):
 
         if response.status_code == 200:
             results = response.json()['results']
-        
+
+            subheader = ''
+            result_panel = st.container()
             for i, result in enumerate(results):
                 pred_disp(i, result)
         else:
-            st.error('Fail')
+            result_panel.error('分類に失敗しました')
+
+# クリアボタン
+if clear_btn:
+    result_panel = st.container()
+
+    if st.session_state.stored_value:
+        response = requests.delete('http://127.0.0.1:8000/delete/' + st.session_state.stored_value)
+        if response.status_code != 200:
+            st.error('画像フォルダの削除に失敗しました')
