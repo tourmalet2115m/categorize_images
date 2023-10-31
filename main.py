@@ -6,8 +6,8 @@ import shutil
 from datetime import datetime
 
 # googletransをインポートする。
-import locale
-locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+#import locale
+#locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
 from googletrans import Translator
 
 # CLIPモデルの読み込み
